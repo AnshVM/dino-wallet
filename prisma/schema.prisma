@@ -1,0 +1,69 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["typedSql"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AssetType {
+  id            Int           @id @default(autoincrement())
+  name          String        @unique @db.VarChar(50)
+  balances      Balance[]
+  ledgerEntries LedgerEntry[]
+
+  @@map("asset_types")
+}
+
+model Account {
+  id            String        @id @default(uuid()) @db.Uuid
+  type          String        @db.VarChar(20)
+  name          String        @db.VarChar(100)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  balances      Balance[]
+  ledgerEntries LedgerEntry[]
+
+  @@map("accounts")
+}
+
+model Balance {
+  id          Int       @id @default(autoincrement())
+  accountId   String    @map("account_id") @db.Uuid
+  assetTypeId Int       @map("asset_type_id")
+  amount      BigInt    @default(0)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  account     Account   @relation(fields: [accountId], references: [id])
+  assetType   AssetType @relation(fields: [assetTypeId], references: [id])
+
+  @@unique([accountId, assetTypeId])
+  @@map("balances")
+}
+
+model Transaction {
+  id             String        @id @default(uuid()) @db.Uuid
+  idempotencyKey String        @unique @map("idempotency_key") @db.VarChar(255)
+  type           String        @db.VarChar(20)
+  status         String        @default("completed") @db.VarChar(20)
+  reference      String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  ledgerEntries  LedgerEntry[]
+
+  @@map("transactions")
+}
+
+model LedgerEntry {
+  id            Int         @id @default(autoincrement())
+  transactionId String      @map("transaction_id") @db.Uuid
+  accountId     String      @map("account_id") @db.Uuid
+  assetTypeId   Int         @map("asset_type_id")
+  amount        BigInt
+  createdAt     DateTime    @default(now()) @map("created_at")
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  account       Account     @relation(fields: [accountId], references: [id])
+  assetType     AssetType   @relation(fields: [assetTypeId], references: [id])
+
+  @@index([accountId, createdAt])
+  @@map("ledger_entries")
+}
